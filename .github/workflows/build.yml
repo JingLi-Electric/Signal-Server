@@ -77,7 +77,7 @@ jobs:
           find websocket-resources/target -name "*.jar" -type f || echo "No JAR files found in websocket-resources/target"
         fi
         
-        # Copy configuration files
+                # Copy configuration files
         CONFIG_FILE="service/config/sample.yml"
         if [ -f "$CONFIG_FILE" ]; then
           cp "$CONFIG_FILE" dist/config.yml
@@ -86,63 +86,55 @@ jobs:
           echo "Config file not found at $CONFIG_FILE, checking alternatives..."
           find service -name "*.yml" -o -name "*.yaml" | head -5
           # Create a basic config template if none found
-          cat > dist/config.yml << 'EOFCONFIG'
-# Signal Server Configuration
-# This is a template configuration file - modify as needed
-
-server:
-  applicationConnectors:
-    - type: http
-      port: 8080
-  adminConnectors:
-    - type: http
-      port: 8081
-
-# Add your DynamoDB and other service configurations here
-EOFCONFIG
+          echo "# Signal Server Configuration Template" > dist/config.yml
+          echo "# Modify as needed for your environment" >> dist/config.yml
+          echo "" >> dist/config.yml
+          echo "server:" >> dist/config.yml
+          echo "  applicationConnectors:" >> dist/config.yml
+          echo "    - type: http" >> dist/config.yml
+          echo "      port: 8080" >> dist/config.yml
+          echo "  adminConnectors:" >> dist/config.yml
+          echo "    - type: http" >> dist/config.yml
+          echo "      port: 8081" >> dist/config.yml
+          echo "" >> dist/config.yml
+          echo "# Add your DynamoDB and other service configurations here" >> dist/config.yml
           echo "Created basic config template"
         fi
         
         # Create startup script
-        cat > dist/start-server.sh << 'EOF'
-        #!/bin/bash
-        echo "Starting Signal Server..."
-        java -jar signal-server.jar server config.yml
-        EOF
+        echo '#!/bin/bash' > dist/start-server.sh
+        echo 'echo "Starting Signal Server..."' >> dist/start-server.sh
+        echo 'java -jar signal-server.jar server config.yml' >> dist/start-server.sh
         chmod +x dist/start-server.sh
         
         # Create Windows startup script
-        cat > dist/start-server.bat << 'EOF'
-        @echo off
-        echo Starting Signal Server...
-        java -jar signal-server.jar server config.yml
-        pause
-        EOF
+        echo '@echo off' > dist/start-server.bat
+        echo 'echo Starting Signal Server...' >> dist/start-server.bat
+        echo 'java -jar signal-server.jar server config.yml' >> dist/start-server.bat
+        echo 'pause' >> dist/start-server.bat
         
         # Create README
-        cat > dist/README.md << 'EOF'
-        # Signal Server Distribution
-        
-        ## Files included:
-        - `signal-server.jar` - Main server application
-        - `websocket-resources.jar` - WebSocket resources
-        - `config.yml` - Configuration file (modify as needed)
-        - `start-server.sh` - Linux/Mac startup script
-        - `start-server.bat` - Windows startup script
-        
-        ## Quick Start:
-        1. Modify `config.yml` with your settings
-        2. Run `./start-server.sh` (Linux/Mac) or `start-server.bat` (Windows)
-        
-        ## Requirements:
-        - Java 21 or higher
-        - Configured database (DynamoDB)
-        - Valid configuration in config.yml
-        
-        ## Custom Features:
-        This build includes CarlJoy's static verification code feature.
-        Phone numbers + verification codes are stored as static passwords.
-        EOF
+        echo "# Signal Server Distribution" > dist/README.md
+        echo "" >> dist/README.md
+        echo "## Files included:" >> dist/README.md
+        echo "- \`signal-server.jar\` - Main server application" >> dist/README.md
+        echo "- \`websocket-resources.jar\` - WebSocket resources" >> dist/README.md
+        echo "- \`config.yml\` - Configuration file (modify as needed)" >> dist/README.md
+        echo "- \`start-server.sh\` - Linux/Mac startup script" >> dist/README.md
+        echo "- \`start-server.bat\` - Windows startup script" >> dist/README.md
+        echo "" >> dist/README.md
+        echo "## Quick Start:" >> dist/README.md
+        echo "1. Modify \`config.yml\` with your settings" >> dist/README.md
+        echo "2. Run \`./start-server.sh\` (Linux/Mac) or \`start-server.bat\` (Windows)" >> dist/README.md
+        echo "" >> dist/README.md
+        echo "## Requirements:" >> dist/README.md
+        echo "- Java 21 or higher" >> dist/README.md
+        echo "- Configured database (DynamoDB)" >> dist/README.md
+        echo "- Valid configuration in config.yml" >> dist/README.md
+        echo "" >> dist/README.md
+        echo "## Custom Features:" >> dist/README.md
+        echo "This build includes CarlJoy's static verification code feature." >> dist/README.md
+        echo "Phone numbers + verification codes are stored as static passwords." >> dist/README.md
 
     - name: Create version info
       run: |
