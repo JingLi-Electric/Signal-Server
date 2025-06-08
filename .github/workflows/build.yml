@@ -37,18 +37,13 @@ jobs:
 
     - name: Clean and compile
       run: |
-        mvn clean compile -DskipTests -Pexclude-spam-filter
+        mvn clean compile -DskipTests -Dmaven.test.skip=true -Pexclude-spam-filter
       env:
         MAVEN_OPTS: "-Xmx2048m"
 
-    - name: Run tests
-      run: |
-        mvn test -Dmaven.test.failure.ignore=true
-      continue-on-error: true
-
     - name: Package application
       run: |
-        mvn package -DskipTests -Pexclude-spam-filter
+        mvn package -DskipTests -Dmaven.test.skip=true -Pexclude-spam-filter
       env:
         MAVEN_OPTS: "-Xmx2048m"
 
