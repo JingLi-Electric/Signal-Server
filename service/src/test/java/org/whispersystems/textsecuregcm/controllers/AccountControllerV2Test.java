@@ -92,6 +92,7 @@ import org.whispersystems.textsecuregcm.storage.ChangeNumberManager;
 import org.whispersystems.textsecuregcm.storage.Device;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.StaticVerificationCodeManager;
 import org.whispersystems.textsecuregcm.tests.util.AccountsHelper;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
@@ -134,7 +135,7 @@ class AccountControllerV2Test {
       .addResource(
           new AccountControllerV2(accountsManager, changeNumberManager,
               new PhoneVerificationTokenManager(phoneNumberIdentifiers, registrationServiceClient,
-                  registrationRecoveryPasswordsManager, registrationRecoveryChecker),
+                  registrationRecoveryPasswordsManager, registrationRecoveryChecker, mock(StaticVerificationCodeManager.class)),
               registrationLockVerificationManager, rateLimiters))
       .build();
 

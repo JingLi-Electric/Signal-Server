@@ -82,6 +82,7 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.StaticVerificationCodeManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.SystemMapper;
 import org.whispersystems.textsecuregcm.util.TestRemoteAddressFilterProvider;
@@ -127,7 +128,7 @@ class VerificationControllerTest {
       .addResource(
           new VerificationController(registrationServiceClient, verificationSessionManager, pushNotificationManager,
               registrationCaptchaManager, registrationRecoveryPasswordsManager, phoneNumberIdentifiers, rateLimiters, accountsManager,
-              RegistrationFraudChecker.noop(), dynamicConfigurationManager, clock))
+              RegistrationFraudChecker.noop(), dynamicConfigurationManager, clock, mock(StaticVerificationCodeManager.class)))
       .build();
 
   @BeforeEach

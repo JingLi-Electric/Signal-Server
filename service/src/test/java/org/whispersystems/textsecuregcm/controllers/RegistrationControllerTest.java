@@ -83,6 +83,7 @@ import org.whispersystems.textsecuregcm.storage.DeviceCapability;
 import org.whispersystems.textsecuregcm.storage.DeviceSpec;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+import org.whispersystems.textsecuregcm.storage.StaticVerificationCodeManager;
 import org.whispersystems.textsecuregcm.tests.util.AuthHelper;
 import org.whispersystems.textsecuregcm.tests.util.KeysHelper;
 import org.whispersystems.textsecuregcm.util.MockUtils;
@@ -120,7 +121,7 @@ class RegistrationControllerTest {
       .addResource(
           new RegistrationController(accountsManager,
               new PhoneVerificationTokenManager(phoneNumberIdentifiers, registrationServiceClient,
-                  registrationRecoveryPasswordsManager, registrationRecoveryChecker),
+                  registrationRecoveryPasswordsManager, registrationRecoveryChecker, mock(StaticVerificationCodeManager.class)),
               registrationLockVerificationManager, rateLimiters))
       .build();
 
