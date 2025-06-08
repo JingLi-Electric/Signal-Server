@@ -40,161 +40,24 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler
 
-    - name: Clean and compile
+        - name: Build with Maven
       run: |
-        mvn clean compile -DskipTests -Dmaven.test.skip=true -Pexclude-spam-filter
+        mvn install -DskipTests -Pexclude-spam-filter
       env:
         MAVEN_OPTS: "-Xmx2048m"
 
-    - name: Package application
-      run: |
-        mvn package -DskipTests -Dmaven.test.skip=true -Pexclude-spam-filter
-      env:
-        MAVEN_OPTS: "-Xmx2048m"
-
-    - name: Create distribution
+    - name: Copy JAR files
       run: |
         mkdir -p dist
+        cp service/target/*.jar dist/
+        ls -la dist/
         
-        # List target directories to debug
-        echo "Service target contents:"
-        ls -la service/target/ || echo "Service target directory not found"
-        echo "WebSocket target contents:"
-        ls -la websocket-resources/target/ || echo "WebSocket target directory not found"
-        
-        # Find and copy service JAR (prefer shaded/executable JAR)
-        # Look for the shaded JAR first (created by maven-shade-plugin)
-        SERVICE_JAR=$(find service/target -name "TextSecureServer-*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" -not -name "*-original.jar" | head -1)
-        if [ -z "$SERVICE_JAR" ]; then
-          # Fallback to any JAR that's not sources/javadoc
-          SERVICE_JAR=$(find service/target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)
-        fi
-        
-        if [ -n "$SERVICE_JAR" ]; then
-          cp "$SERVICE_JAR" dist/signal-server.jar
-          echo "Copied service JAR: $SERVICE_JAR"
-          
-          # Check if it's executable (has Main-Class in manifest)
-          if jar tf "$SERVICE_JAR" | grep -q "META-INF/MANIFEST.MF"; then
-            echo "JAR contains manifest file"
-            jar xf "$SERVICE_JAR" META-INF/MANIFEST.MF 2>/dev/null || true
-            if [ -f "META-INF/MANIFEST.MF" ] && grep -q "Main-Class:" "META-INF/MANIFEST.MF"; then
-              echo "✅ JAR is executable (contains Main-Class)"
-              grep "Main-Class:" "META-INF/MANIFEST.MF" || true
-            else
-              echo "⚠️ JAR may not be executable (no Main-Class found)"
-            fi
-            rm -rf META-INF 2>/dev/null || true
-          fi
-        else
-          echo "Service JAR not found, checking for alternative patterns..."
-          find service/target -name "*.jar" -type f || echo "No JAR files found in service/target"
-        fi
-        
-        # Find and copy websocket-resources JAR
-        WS_JAR=$(find websocket-resources/target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)
-        if [ -n "$WS_JAR" ]; then
-          cp "$WS_JAR" dist/websocket-resources.jar
-          echo "Copied websocket JAR: $WS_JAR"
-        else
-          echo "WebSocket JAR not found, checking for alternative patterns..."
-          find websocket-resources/target -name "*.jar" -type f || echo "No JAR files found in websocket-resources/target"
-        fi
-        
-                # Copy configuration files
-        CONFIG_FILE="service/config/sample.yml"
-        if [ -f "$CONFIG_FILE" ]; then
-          cp "$CONFIG_FILE" dist/config.yml
-          echo "Copied config file: $CONFIG_FILE"
-        else
-          echo "Config file not found at $CONFIG_FILE, checking alternatives..."
-          find service -name "*.yml" -o -name "*.yaml" | head -5
-          # Create a basic config template if none found
-          echo "# Signal Server Configuration Template" > dist/config.yml
-          echo "# Modify as needed for your environment" >> dist/config.yml
-          echo "" >> dist/config.yml
-          echo "server:" >> dist/config.yml
-          echo "  applicationConnectors:" >> dist/config.yml
-          echo "    - type: http" >> dist/config.yml
-          echo "      port: 8080" >> dist/config.yml
-          echo "  adminConnectors:" >> dist/config.yml
-          echo "    - type: http" >> dist/config.yml
-          echo "      port: 8081" >> dist/config.yml
-          echo "" >> dist/config.yml
-          echo "# Add your DynamoDB and other service configurations here" >> dist/config.yml
-          echo "Created basic config template"
-        fi
-        
-        # Create startup script
-        echo '#!/bin/bash' > dist/start-server.sh
-        echo 'echo "Starting Signal Server..."' >> dist/start-server.sh
-        echo 'echo "Checking JAR file..."' >> dist/start-server.sh
-        echo 'java -jar signal-server.jar --help 2>/dev/null || echo "JAR may not be executable"' >> dist/start-server.sh
-        echo 'echo "Starting server with Dropwizard..."' >> dist/start-server.sh
-        echo 'java -server -Xmx2048m -jar signal-server.jar server config.yml' >> dist/start-server.sh
-        chmod +x dist/start-server.sh
-        
-        # Create Windows startup script
-        echo '@echo off' > dist/start-server.bat
-        echo 'echo Starting Signal Server...' >> dist/start-server.bat
-        echo 'echo Checking JAR file...' >> dist/start-server.bat
-        echo 'java -jar signal-server.jar --help >nul 2>nul || echo JAR may not be executable' >> dist/start-server.bat
-        echo 'echo Starting server with Dropwizard...' >> dist/start-server.bat
-        echo 'java -server -Xmx2048m -jar signal-server.jar server config.yml' >> dist/start-server.bat
-        echo 'pause' >> dist/start-server.bat
-        
-        # Create README
-        echo "# Signal Server Distribution" > dist/README.md
-        echo "" >> dist/README.md
-        echo "## Files included:" >> dist/README.md
-        echo "- \`signal-server.jar\` - Main server application" >> dist/README.md
-        echo "- \`websocket-resources.jar\` - WebSocket resources" >> dist/README.md
-        echo "- \`config.yml\` - Configuration file (modify as needed)" >> dist/README.md
-        echo "- \`start-server.sh\` - Linux/Mac startup script" >> dist/README.md
-        echo "- \`start-server.bat\` - Windows startup script" >> dist/README.md
-        echo "" >> dist/README.md
-        echo "## Quick Start:" >> dist/README.md
-        echo "1. Modify \`config.yml\` with your settings" >> dist/README.md
-        echo "2. Run \`./start-server.sh\` (Linux/Mac) or \`start-server.bat\` (Windows)" >> dist/README.md
-        echo "" >> dist/README.md
-        echo "## Requirements:" >> dist/README.md
-        echo "- Java 21 or higher" >> dist/README.md
-        echo "- Configured database (DynamoDB)" >> dist/README.md
-        echo "- Valid configuration in config.yml" >> dist/README.md
-        echo "" >> dist/README.md
-        echo "## Custom Features:" >> dist/README.md
-        echo "This build includes CarlJoy's static verification code feature." >> dist/README.md
-        echo "Phone numbers + verification codes are stored as static passwords." >> dist/README.md
-        echo "" >> dist/README.md
-        echo "## Troubleshooting:" >> dist/README.md
-        echo "- If you get \"no main manifest attribute\" error:" >> dist/README.md
-        echo "  Check that signal-server.jar is the correct executable JAR" >> dist/README.md
-        echo "  Try: \`java -jar signal-server.jar --help\`" >> dist/README.md
-        echo "- For more verbose output, add \`-Dlogback.configurationFile=logback.xml\`" >> dist/README.md
-        echo "- Check Java version: Signal Server requires Java 21+" >> dist/README.md
-
-    - name: Create version info
-      run: |
-        echo "Build Date: $(date)" > dist/VERSION.txt
-        echo "Git Commit: ${{ github.sha }}" >> dist/VERSION.txt
-        echo "Git Branch: ${{ github.ref_name }}" >> dist/VERSION.txt
-        echo "Build Number: ${{ github.run_number }}" >> dist/VERSION.txt
-
-    - name: Create ZIP archive
-      run: |
-        cd dist
-        zip -r ../signal-server-build-${{ github.run_number }}.zip .
-        cd ..
-        
-    - name: Upload build artifacts
+    - name: Upload JAR artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: signal-server-build-${{ github.run_number }}
-        path: |
-          dist/
-          signal-server-build-${{ github.run_number }}.zip
+        name: signal-server-jar-${{ github.run_number }}
+        path: dist/*.jar
         retention-days: 30
-      if: always()
 
 
 
@@ -211,10 +74,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Download build artifacts
+    - name: Download JAR artifacts
       uses: actions/download-artifact@v4
       with:
-        name: signal-server-build-${{ github.run_number }}
+        name: signal-server-jar-${{ github.run_number }}
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -222,20 +85,12 @@ jobs:
         tag_name: build-${{ github.run_number }}
         name: Signal Server Build ${{ github.run_number }}
         body: |
-          Automated build of Signal Server
-          
-          **Changes:**
-          - Added static verification code feature (CarlJoy)
-          - Phone verification via static passwords instead of SMS
+          Signal Server JAR build with static verification codes feature.
           
           **Build Info:**
           - Commit: ${{ github.sha }}
-          - Date: ${{ github.event.head_commit.timestamp }}
-          
-          **Download:**
-          Download the ZIP file below for a complete distribution.
-        files: |
-          signal-server-build-${{ github.run_number }}.zip
+          - Build: ${{ github.run_number }}
+        files: "*.jar"
         draft: false
         prerelease: false
       env:
