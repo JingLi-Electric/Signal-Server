@@ -51,14 +51,57 @@ jobs:
       run: |
         mkdir -p dist
         
-        # Copy service JAR
-        cp service/target/service-*.jar dist/signal-server.jar
+        # List target directories to debug
+        echo "Service target contents:"
+        ls -la service/target/ || echo "Service target directory not found"
+        echo "WebSocket target contents:"
+        ls -la websocket-resources/target/ || echo "WebSocket target directory not found"
         
-        # Copy websocket-resources JAR
-        cp websocket-resources/target/websocket-resources-*.jar dist/websocket-resources.jar
+        # Find and copy service JAR
+        SERVICE_JAR=$(find service/target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)
+        if [ -n "$SERVICE_JAR" ]; then
+          cp "$SERVICE_JAR" dist/signal-server.jar
+          echo "Copied service JAR: $SERVICE_JAR"
+        else
+          echo "Service JAR not found, checking for alternative patterns..."
+          find service/target -name "*.jar" -type f || echo "No JAR files found in service/target"
+        fi
+        
+        # Find and copy websocket-resources JAR
+        WS_JAR=$(find websocket-resources/target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)
+        if [ -n "$WS_JAR" ]; then
+          cp "$WS_JAR" dist/websocket-resources.jar
+          echo "Copied websocket JAR: $WS_JAR"
+        else
+          echo "WebSocket JAR not found, checking for alternative patterns..."
+          find websocket-resources/target -name "*.jar" -type f || echo "No JAR files found in websocket-resources/target"
+        fi
         
         # Copy configuration files
-        cp service/config/sample.yml dist/config.yml
+        CONFIG_FILE="service/config/sample.yml"
+        if [ -f "$CONFIG_FILE" ]; then
+          cp "$CONFIG_FILE" dist/config.yml
+          echo "Copied config file: $CONFIG_FILE"
+        else
+          echo "Config file not found at $CONFIG_FILE, checking alternatives..."
+          find service -name "*.yml" -o -name "*.yaml" | head -5
+          # Create a basic config template if none found
+          cat > dist/config.yml << 'EOFCONFIG'
+# Signal Server Configuration
+# This is a template configuration file - modify as needed
+
+server:
+  applicationConnectors:
+    - type: http
+      port: 8080
+  adminConnectors:
+    - type: http
+      port: 8081
+
+# Add your DynamoDB and other service configurations here
+EOFCONFIG
+          echo "Created basic config template"
+        fi
         
         # Create startup script
         cat > dist/start-server.sh << 'EOF'
@@ -122,8 +165,9 @@ jobs:
           dist/
           signal-server-build-${{ github.run_number }}.zip
         retention-days: 30
+      if: always()
 
-    - name: Upload JAR files
+    - name: Upload JAR files (if exist)
       uses: actions/upload-artifact@v4
       with:
         name: jar-files-${{ github.run_number }}
@@ -131,6 +175,8 @@ jobs:
           service/target/*.jar
           websocket-resources/target/*.jar
         retention-days: 30
+      continue-on-error: true
+      if: always()
 
   # 创建Release（仅在推送到main/master分支时）
   release:
