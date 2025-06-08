@@ -62,11 +62,30 @@ jobs:
         echo "WebSocket target contents:"
         ls -la websocket-resources/target/ || echo "WebSocket target directory not found"
         
-        # Find and copy service JAR
-        SERVICE_JAR=$(find service/target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)
+        # Find and copy service JAR (prefer shaded/executable JAR)
+        # Look for the shaded JAR first (created by maven-shade-plugin)
+        SERVICE_JAR=$(find service/target -name "TextSecureServer-*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" -not -name "*-original.jar" | head -1)
+        if [ -z "$SERVICE_JAR" ]; then
+          # Fallback to any JAR that's not sources/javadoc
+          SERVICE_JAR=$(find service/target -name "*.jar" -not -name "*-sources.jar" -not -name "*-javadoc.jar" | head -1)
+        fi
+        
         if [ -n "$SERVICE_JAR" ]; then
           cp "$SERVICE_JAR" dist/signal-server.jar
           echo "Copied service JAR: $SERVICE_JAR"
+          
+          # Check if it's executable (has Main-Class in manifest)
+          if jar tf "$SERVICE_JAR" | grep -q "META-INF/MANIFEST.MF"; then
+            echo "JAR contains manifest file"
+            jar xf "$SERVICE_JAR" META-INF/MANIFEST.MF 2>/dev/null || true
+            if [ -f "META-INF/MANIFEST.MF" ] && grep -q "Main-Class:" "META-INF/MANIFEST.MF"; then
+              echo "✅ JAR is executable (contains Main-Class)"
+              grep "Main-Class:" "META-INF/MANIFEST.MF" || true
+            else
+              echo "⚠️ JAR may not be executable (no Main-Class found)"
+            fi
+            rm -rf META-INF 2>/dev/null || true
+          fi
         else
           echo "Service JAR not found, checking for alternative patterns..."
           find service/target -name "*.jar" -type f || echo "No JAR files found in service/target"
@@ -109,13 +128,19 @@ jobs:
         # Create startup script
         echo '#!/bin/bash' > dist/start-server.sh
         echo 'echo "Starting Signal Server..."' >> dist/start-server.sh
-        echo 'java -jar signal-server.jar server config.yml' >> dist/start-server.sh
+        echo 'echo "Checking JAR file..."' >> dist/start-server.sh
+        echo 'java -jar signal-server.jar --help 2>/dev/null || echo "JAR may not be executable"' >> dist/start-server.sh
+        echo 'echo "Starting server with Dropwizard..."' >> dist/start-server.sh
+        echo 'java -server -Xmx2048m -jar signal-server.jar server config.yml' >> dist/start-server.sh
         chmod +x dist/start-server.sh
         
         # Create Windows startup script
         echo '@echo off' > dist/start-server.bat
         echo 'echo Starting Signal Server...' >> dist/start-server.bat
-        echo 'java -jar signal-server.jar server config.yml' >> dist/start-server.bat
+        echo 'echo Checking JAR file...' >> dist/start-server.bat
+        echo 'java -jar signal-server.jar --help >nul 2>nul || echo JAR may not be executable' >> dist/start-server.bat
+        echo 'echo Starting server with Dropwizard...' >> dist/start-server.bat
+        echo 'java -server -Xmx2048m -jar signal-server.jar server config.yml' >> dist/start-server.bat
         echo 'pause' >> dist/start-server.bat
         
         # Create README
@@ -140,6 +165,13 @@ jobs:
         echo "## Custom Features:" >> dist/README.md
         echo "This build includes CarlJoy's static verification code feature." >> dist/README.md
         echo "Phone numbers + verification codes are stored as static passwords." >> dist/README.md
+        echo "" >> dist/README.md
+        echo "## Troubleshooting:" >> dist/README.md
+        echo "- If you get \"no main manifest attribute\" error:" >> dist/README.md
+        echo "  Check that signal-server.jar is the correct executable JAR" >> dist/README.md
+        echo "  Try: \`java -jar signal-server.jar --help\`" >> dist/README.md
+        echo "- For more verbose output, add \`-Dlogback.configurationFile=logback.xml\`" >> dist/README.md
+        echo "- Check Java version: Signal Server requires Java 21+" >> dist/README.md
 
     - name: Create version info
       run: |
@@ -164,16 +196,7 @@ jobs:
         retention-days: 30
       if: always()
 
-    - name: Upload JAR files (if exist)
-      uses: actions/upload-artifact@v4
-      with:
-        name: jar-files-${{ github.run_number }}
-        path: |
-          service/target/*.jar
-          websocket-resources/target/*.jar
-        retention-days: 30
-      continue-on-error: true
-      if: always()
+
 
   # 创建Release（仅在推送到main/master分支时）
   release:
