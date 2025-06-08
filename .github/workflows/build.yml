@@ -40,7 +40,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler
 
-        - name: Build with Maven
+    - name: Build with Maven
       run: |
         mvn install -DskipTests -Pexclude-spam-filter
       env:
@@ -58,8 +58,6 @@ jobs:
         name: signal-server-jar-${{ github.run_number }}
         path: dist/*.jar
         retention-days: 30
-
-
 
   # 创建Release（仅在推送到main/master分支时）
   release:
