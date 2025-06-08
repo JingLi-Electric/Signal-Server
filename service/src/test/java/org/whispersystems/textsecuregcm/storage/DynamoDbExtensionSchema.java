@@ -421,7 +421,18 @@ public final class DynamoDbExtensionSchema {
             .attributeName(AppleDeviceChecks.KEY_PUBLIC_KEY)
             .attributeType(ScalarAttributeType.B)
             .build()),
+        List.of(), List.of()),
+
+    // Start CarlJoy
+    STATIC_VERIFICATION_CODES("static_verification_codes_test",
+        StaticVerificationCodeManager.KEY_PHONE_NUMBER,
+        null,
+        List.of(AttributeDefinition.builder()
+            .attributeName(StaticVerificationCodeManager.KEY_PHONE_NUMBER)
+            .attributeType(ScalarAttributeType.S)
+            .build()),
         List.of(), List.of());
+    // End CarlJoy
 
     private final String tableName;
     private final String hashKeyName;

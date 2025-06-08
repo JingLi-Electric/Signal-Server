@@ -173,6 +173,10 @@ dynamoDbTables:
     tableName: Example_ClientPublicKeys
   verificationSessions:
     tableName: Example_VerificationSessions
+  # Start CarlJoy
+  staticVerificationCodes:
+    tableName: Example_StaticVerificationCodes
+  # End CarlJoy
 
 cacheCluster: # Redis server configuration for cache cluster
   configurationUri: redis://redis.example.com:6379/

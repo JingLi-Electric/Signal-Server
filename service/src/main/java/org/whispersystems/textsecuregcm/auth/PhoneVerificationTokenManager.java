@@ -27,6 +27,9 @@ import org.whispersystems.textsecuregcm.registration.RegistrationServiceClient;
 import org.whispersystems.textsecuregcm.spam.RegistrationRecoveryChecker;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+// Start CarlJoy
+import org.whispersystems.textsecuregcm.storage.StaticVerificationCodeManager;
+// End CarlJoy
 
 public class PhoneVerificationTokenManager {
 
@@ -39,15 +42,24 @@ public class PhoneVerificationTokenManager {
   private final RegistrationServiceClient registrationServiceClient;
   private final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager;
   private final RegistrationRecoveryChecker registrationRecoveryChecker;
+  // Start CarlJoy
+  private final StaticVerificationCodeManager staticVerificationCodeManager;
+  // End CarlJoy
 
   public PhoneVerificationTokenManager(final PhoneNumberIdentifiers phoneNumberIdentifiers,
       final RegistrationServiceClient registrationServiceClient,
       final RegistrationRecoveryPasswordsManager registrationRecoveryPasswordsManager,
-      final RegistrationRecoveryChecker registrationRecoveryChecker) {
+      final RegistrationRecoveryChecker registrationRecoveryChecker,
+      // Start CarlJoy
+      final StaticVerificationCodeManager staticVerificationCodeManager) {
+      // End CarlJoy
     this.phoneNumberIdentifiers = phoneNumberIdentifiers;
     this.registrationServiceClient = registrationServiceClient;
     this.registrationRecoveryPasswordsManager = registrationRecoveryPasswordsManager;
     this.registrationRecoveryChecker = registrationRecoveryChecker;
+    // Start CarlJoy
+    this.staticVerificationCodeManager = staticVerificationCodeManager;
+    // End CarlJoy
   }
 
   /**

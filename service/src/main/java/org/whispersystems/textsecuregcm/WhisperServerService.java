@@ -240,6 +240,9 @@ import org.whispersystems.textsecuregcm.storage.ReportMessageDynamoDb;
 import org.whispersystems.textsecuregcm.storage.ReportMessageManager;
 import org.whispersystems.textsecuregcm.storage.SubscriptionManager;
 import org.whispersystems.textsecuregcm.storage.Subscriptions;
+// Start CarlJoy
+import org.whispersystems.textsecuregcm.storage.StaticVerificationCodeManager;
+// End CarlJoy
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.storage.VerificationSessions;
 import org.whispersystems.textsecuregcm.storage.devicecheck.AppleDeviceCheckManager;
@@ -1062,8 +1065,16 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
 
     final PersistentTimer persistentTimer = new PersistentTimer(rateLimitersCluster, clock);
 
+    // Start CarlJoy
+    final StaticVerificationCodeManager staticVerificationCodeManager = new StaticVerificationCodeManager(
+        dynamoDbClient, config.getDynamoDbTables().getStaticVerificationCodes().getTableName());
+    // End CarlJoy
+
     final PhoneVerificationTokenManager phoneVerificationTokenManager = new PhoneVerificationTokenManager(
-        phoneNumberIdentifiers, registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker);
+        phoneNumberIdentifiers, registrationServiceClient, registrationRecoveryPasswordsManager, registrationRecoveryChecker,
+        // Start CarlJoy
+        staticVerificationCodeManager);
+        // End CarlJoy
     final List<Object> commonControllers = Lists.newArrayList(
         new AccountController(accountsManager, rateLimiters, registrationRecoveryPasswordsManager,
             usernameHashZkProofVerifier),
@@ -1108,7 +1119,10 @@ public class WhisperServerService extends Application<WhisperServerConfiguration
         new VerificationController(registrationServiceClient, new VerificationSessionManager(verificationSessions),
             pushNotificationManager, registrationCaptchaManager, registrationRecoveryPasswordsManager,
             phoneNumberIdentifiers, rateLimiters, accountsManager, registrationFraudChecker,
-            dynamicConfigurationManager, clock)
+            dynamicConfigurationManager, clock,
+            // Start CarlJoy
+            staticVerificationCodeManager)
+            // End CarlJoy
     );
     if (config.getSubscription() != null && config.getOneTimeDonations() != null) {
       SubscriptionManager subscriptionManager = new SubscriptionManager(subscriptions,

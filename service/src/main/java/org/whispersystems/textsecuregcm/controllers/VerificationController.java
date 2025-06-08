@@ -93,6 +93,9 @@ import org.whispersystems.textsecuregcm.storage.AccountsManager;
 import org.whispersystems.textsecuregcm.storage.DynamicConfigurationManager;
 import org.whispersystems.textsecuregcm.storage.PhoneNumberIdentifiers;
 import org.whispersystems.textsecuregcm.storage.RegistrationRecoveryPasswordsManager;
+// Start CarlJoy
+import org.whispersystems.textsecuregcm.storage.StaticVerificationCodeManager;
+// End CarlJoy
 import org.whispersystems.textsecuregcm.storage.VerificationSessionManager;
 import org.whispersystems.textsecuregcm.util.ExceptionUtils;
 import org.whispersystems.textsecuregcm.util.ObsoletePhoneNumberFormatException;
@@ -132,6 +135,9 @@ public class VerificationController {
   private final RegistrationFraudChecker registrationFraudChecker;
   private final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager;
   private final Clock clock;
+  // Start CarlJoy
+  private final StaticVerificationCodeManager staticVerificationCodeManager;
+  // End CarlJoy
 
   public VerificationController(final RegistrationServiceClient registrationServiceClient,
       final VerificationSessionManager verificationSessionManager,
@@ -143,7 +149,10 @@ public class VerificationController {
       final AccountsManager accountsManager,
       final RegistrationFraudChecker registrationFraudChecker,
       final DynamicConfigurationManager<DynamicConfiguration> dynamicConfigurationManager,
-      final Clock clock) {
+      final Clock clock,
+      // Start CarlJoy
+      final StaticVerificationCodeManager staticVerificationCodeManager) {
+      // End CarlJoy
     this.registrationServiceClient = registrationServiceClient;
     this.verificationSessionManager = verificationSessionManager;
     this.pushNotificationManager = pushNotificationManager;
@@ -155,6 +164,9 @@ public class VerificationController {
     this.registrationFraudChecker = registrationFraudChecker;
     this.dynamicConfigurationManager = dynamicConfigurationManager;
     this.clock = clock;
+    // Start CarlJoy
+    this.staticVerificationCodeManager = staticVerificationCodeManager;
+    // End CarlJoy
   }
 
   @POST
@@ -674,6 +686,34 @@ public class VerificationController {
     }
 
     final RegistrationServiceSession resultSession;
+    
+    // Start CarlJoy
+    // Use static verification code manager instead of remote registration service
+    final boolean codeVerified = staticVerificationCodeManager.verifyAndStore(
+        registrationServiceSession.number(), submitVerificationCodeRequest.code());
+    
+    if (codeVerified) {
+      // Create a verified session
+      resultSession = new RegistrationServiceSession(
+          registrationServiceSession.id(),
+          registrationServiceSession.number(),
+          true, // verified = true
+          registrationServiceSession.nextSms(),
+          registrationServiceSession.nextVoiceCall(),
+          registrationServiceSession.nextVerificationAttempt(),
+          registrationServiceSession.expiration()
+      );
+    } else {
+      // Verification failed, throw exception similar to wrong code in original flow
+      throw new ClientErrorException(
+          Response.status(Response.Status.CONFLICT)
+              .entity(buildResponse(registrationServiceSession, verificationSession))
+              .build());
+    }
+    // End CarlJoy
+    
+    // Keep original remote service code as fallback (commented out)
+    /*
     try {
       resultSession = registrationServiceClient.checkVerificationCode(registrationServiceSession.id(),
               submitVerificationCodeRequest.code(),
@@ -707,6 +747,7 @@ public class VerificationController {
         throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR);
       }
     }
+    */
 
     if (resultSession.verified()) {
       registrationRecoveryPasswordsManager.remove(phoneNumberIdentifiers.getPhoneNumberIdentifier(registrationServiceSession.number()).join());
