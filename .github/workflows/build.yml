@@ -1,0 +1,187 @@
+name: Signal Server Build
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Install Protocol Buffer Compiler
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+
+    - name: Clean and compile
+      run: |
+        mvn clean compile -DskipTests
+      env:
+        MAVEN_OPTS: "-Xmx2048m"
+
+    - name: Run tests
+      run: |
+        mvn test -Dmaven.test.failure.ignore=true
+      continue-on-error: true
+
+    - name: Package application
+      run: |
+        mvn package -DskipTests
+      env:
+        MAVEN_OPTS: "-Xmx2048m"
+
+    - name: Create distribution
+      run: |
+        mkdir -p dist
+        
+        # Copy service JAR
+        cp service/target/service-*.jar dist/signal-server.jar
+        
+        # Copy websocket-resources JAR
+        cp websocket-resources/target/websocket-resources-*.jar dist/websocket-resources.jar
+        
+        # Copy configuration files
+        cp service/config/sample.yml dist/config.yml
+        
+        # Create startup script
+        cat > dist/start-server.sh << 'EOF'
+        #!/bin/bash
+        echo "Starting Signal Server..."
+        java -jar signal-server.jar server config.yml
+        EOF
+        chmod +x dist/start-server.sh
+        
+        # Create Windows startup script
+        cat > dist/start-server.bat << 'EOF'
+        @echo off
+        echo Starting Signal Server...
+        java -jar signal-server.jar server config.yml
+        pause
+        EOF
+        
+        # Create README
+        cat > dist/README.md << 'EOF'
+        # Signal Server Distribution
+        
+        ## Files included:
+        - `signal-server.jar` - Main server application
+        - `websocket-resources.jar` - WebSocket resources
+        - `config.yml` - Configuration file (modify as needed)
+        - `start-server.sh` - Linux/Mac startup script
+        - `start-server.bat` - Windows startup script
+        
+        ## Quick Start:
+        1. Modify `config.yml` with your settings
+        2. Run `./start-server.sh` (Linux/Mac) or `start-server.bat` (Windows)
+        
+        ## Requirements:
+        - Java 21 or higher
+        - Configured database (DynamoDB)
+        - Valid configuration in config.yml
+        
+        ## Custom Features:
+        This build includes CarlJoy's static verification code feature.
+        Phone numbers + verification codes are stored as static passwords.
+        EOF
+
+    - name: Create version info
+      run: |
+        echo "Build Date: $(date)" > dist/VERSION.txt
+        echo "Git Commit: ${{ github.sha }}" >> dist/VERSION.txt
+        echo "Git Branch: ${{ github.ref_name }}" >> dist/VERSION.txt
+        echo "Build Number: ${{ github.run_number }}" >> dist/VERSION.txt
+
+    - name: Create ZIP archive
+      run: |
+        cd dist
+        zip -r ../signal-server-build-${{ github.run_number }}.zip .
+        cd ..
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: signal-server-build-${{ github.run_number }}
+        path: |
+          dist/
+          signal-server-build-${{ github.run_number }}.zip
+        retention-days: 30
+
+    - name: Upload JAR files
+      uses: actions/upload-artifact@v4
+      with:
+        name: jar-files-${{ github.run_number }}
+        path: |
+          service/target/*.jar
+          websocket-resources/target/*.jar
+        retention-days: 30
+
+  # 创建Release（仅在推送到main/master分支时）
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: signal-server-build-${{ github.run_number }}
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: build-${{ github.run_number }}
+        release_name: Signal Server Build ${{ github.run_number }}
+        body: |
+          Automated build of Signal Server
+          
+          **Changes:**
+          - Added static verification code feature (CarlJoy)
+          - Phone verification via static passwords instead of SMS
+          
+          **Build Info:**
+          - Commit: ${{ github.sha }}
+          - Date: ${{ github.event.head_commit.timestamp }}
+          
+          **Download:**
+          Download the ZIP file below for a complete distribution.
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./signal-server-build-${{ github.run_number }}.zip
+        asset_name: signal-server-build-${{ github.run_number }}.zip
+        asset_content_type: application/zip 

@@ -1,0 +1,109 @@
+name: Quick Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests to speed up build'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  quick-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Cache Maven dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-quick-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Install Protocol Buffer Compiler
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+
+    - name: Quick Build
+      run: |
+        if [ "${{ github.event.inputs.skip_tests }}" == "true" ]; then
+          echo "Skipping tests for quick build..."
+          mvn clean package -DskipTests -q
+        else
+          echo "Running with tests..."
+          mvn clean package -q
+        fi
+      env:
+        MAVEN_OPTS: "-Xmx2048m"
+
+    - name: Prepare artifacts
+      run: |
+        mkdir -p artifacts
+        
+        # Find and copy JAR files
+        find . -name "*.jar" -not -path "*/target/classes/*" -not -path "*/original-*" | while read jar; do
+          basename=$(basename "$jar")
+          dirname=$(dirname "$jar")
+          module=$(echo "$dirname" | sed 's|.*/||' | sed 's|/target||')
+          cp "$jar" "artifacts/${module}-${basename}"
+        done
+        
+        # Copy config
+        cp service/config/sample.yml artifacts/config-sample.yml
+        
+        # Create quick start guide
+        cat > artifacts/QUICK-START.md << 'EOF'
+        # Quick Start Guide
+        
+        ## CarlJoy 静态验证码版本
+        
+        ### 主要变更：
+        - 手机号作为用户名
+        - 验证码作为静态密码（明文存储）
+        - 首次输入验证码会自动创建账户
+        - 后续必须使用相同验证码登录
+        
+        ### 快速启动：
+        1. 修改 `config-sample.yml` 为 `config.yml`
+        2. 配置数据库连接
+        3. 运行：`java -jar service-signal-server.jar server config.yml`
+        
+        ### 数据库表：
+        新增表：`staticVerificationCodes`
+        - phone_number (主键)
+        - verification_code (明文密码)
+        - created_at, updated_at
+        EOF
+
+    - name: Upload Quick Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: signal-server-quick-${{ github.run_number }}
+        path: artifacts/
+        retention-days: 7
+
+    - name: Create download info
+      run: |
+        echo "✅ 构建完成！" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📦 **下载地址：**" >> $GITHUB_STEP_SUMMARY
+        echo "- 点击右上角 Actions 标签页" >> $GITHUB_STEP_SUMMARY
+        echo "- 找到本次构建 (Build #${{ github.run_number }})" >> $GITHUB_STEP_SUMMARY
+        echo "- 下载 'signal-server-quick-${{ github.run_number }}' 压缩包" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🚀 **包含文件：**" >> $GITHUB_STEP_SUMMARY
+        echo "- service-signal-server.jar (主服务)" >> $GITHUB_STEP_SUMMARY
+        echo "- websocket-resources-websocket-resources.jar (WebSocket资源)" >> $GITHUB_STEP_SUMMARY
+        echo "- config-sample.yml (配置样例)" >> $GITHUB_STEP_SUMMARY
+        echo "- QUICK-START.md (快速开始指南)" >> $GITHUB_STEP_SUMMARY 
