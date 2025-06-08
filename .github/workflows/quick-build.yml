@@ -16,6 +16,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        submodules: false  # Skip submodules to avoid private spam-filter dependency
 
     - name: Set up JDK 21
       uses: actions/setup-java@v4
@@ -39,10 +41,10 @@ jobs:
       run: |
         if [ "${{ github.event.inputs.skip_tests }}" == "true" ]; then
           echo "Skipping tests for quick build..."
-          mvn clean package -DskipTests -q
+          mvn clean package -DskipTests -Pexclude-spam-filter -q
         else
           echo "Running with tests..."
-          mvn clean package -q
+          mvn clean package -Pexclude-spam-filter -q
         fi
       env:
         MAVEN_OPTS: "-Xmx2048m"

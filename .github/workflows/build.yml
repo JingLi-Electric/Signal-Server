@@ -15,7 +15,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: false  # Skip submodules to avoid private spam-filter dependency
 
     - name: Set up JDK 21
       uses: actions/setup-java@v4
@@ -37,7 +37,7 @@ jobs:
 
     - name: Clean and compile
       run: |
-        mvn clean compile -DskipTests
+        mvn clean compile -DskipTests -Pexclude-spam-filter
       env:
         MAVEN_OPTS: "-Xmx2048m"
 
@@ -48,7 +48,7 @@ jobs:
 
     - name: Package application
       run: |
-        mvn package -DskipTests
+        mvn package -DskipTests -Pexclude-spam-filter
       env:
         MAVEN_OPTS: "-Xmx2048m"
 
